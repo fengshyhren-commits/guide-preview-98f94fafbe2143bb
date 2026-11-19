@@ -1,0 +1,40 @@
+<!doctype html>
+<html lang="zh-Hant-TW">
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="robots" content="noindex, nofollow">
+<meta name="referrer" content="no-referrer">
+<title>專屬導覽</title>
+<style>
+  body { margin: 0; background: #10243a; color: #fff; font: 1.1rem/1.6 system-ui, sans-serif; }
+  main { max-width: 34rem; margin: 14vh auto 0; padding: 0 1.5rem; }
+  h1 { font-size: 1.7rem; }
+</style>
+<main aria-live="polite">
+  <h1>專屬導覽</h1>
+  <p id="status">請使用完整的專屬連結開啟導覽。</p>
+</main>
+<script>
+  async function openGuide() {
+    const access = new URLSearchParams(location.hash.slice(1)).get("access");
+    if (!access || !/^[A-Za-z0-9_-]{43}$/.test(access)) return;
+    const status = document.getElementById("status");
+    status.textContent = "正在載入導覽…";
+    try {
+      const keyBytes = Uint8Array.from(atob(access.replace(/-/g, "+").replace(/_/g, "/")), char => char.charCodeAt(0));
+      const key = await crypto.subtle.importKey("raw", keyBytes, "AES-GCM", false, ["decrypt"]);
+      const response = await fetch("./guide.enc", { credentials: "omit", referrerPolicy: "no-referrer" });
+      if (!response.ok) throw new Error("download");
+      const bytes = new Uint8Array(await response.arrayBuffer());
+      const html = await crypto.subtle.decrypt({ name: "AES-GCM", iv: bytes.subarray(0, 12) }, key, bytes.subarray(12));
+      document.open();
+      document.write(new TextDecoder("utf-8").decode(html));
+      document.close();
+    } catch {
+      status.textContent = "目前無法開啟導覽。請確認連結完整，或稍後重試。";
+    }
+  }
+  window.addEventListener("hashchange", () => location.reload());
+  openGuide();
+</script>
+</html>
